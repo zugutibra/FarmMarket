@@ -5,7 +5,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Farmer, Buyer
+from .models import Farmer, Buyer, Product
 from .serializers import FarmerSerializer, BuyerSerializer
 
 
@@ -29,6 +29,22 @@ class BuyerRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AddProductView(APIView):
+    def post(self, request):
+        data = request.data
+        product = Product.objects.create(
+            name=data.get('name'),
+            description=data.get('description'),
+            price=data.get('price'),
+            quantity=data.get('quantity'),
+            category=data.get('category'),
+        )
+        return Response({"success": True, "product_id": product.id}, status=status.HTTP_201_CREATED)
+
+class ProductListView(APIView):
+    def get(self, request):
+        products = Product.objects.all().values()
+        return Response({"success": True, "products": list(products)}, status=status.HTTP_200_OK)
 
 # Login
 class LoginView(APIView):
