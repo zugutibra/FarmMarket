@@ -40,7 +40,8 @@ class Product(models.Model):
 class Buyer(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    password = models.CharField(max_length=255)  # Store hashed passwords for security
+    password = models.CharField(max_length=255, default="default_password")  # Store hashed passwords for security
 
     def __str__(self):
         return self.name
+    
