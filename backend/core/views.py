@@ -1,12 +1,12 @@
 from django.shortcuts import get_object_or_404
 from .models import Farmer, Buyer, Admin
 from django.shortcuts import render, redirect
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Farmer, Buyer, Product
-from .serializers import FarmerSerializer, BuyerSerializer
+from .serializers import FarmerSerializer, BuyerSerializer, ProductSerializer
 
 
 # Farmer Registration
@@ -31,15 +31,35 @@ class BuyerRegistrationView(APIView):
 
 class AddProductView(APIView):
     def post(self, request):
-        data = request.data
+        farmer_id = request.data.get('farmer_id')
+        try:
+            farmer = Farmer.objects.get(id=farmer_id)
+        except Farmer.DoesNotExist:
+            return Response({"error": "Farmer not found or invalid"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the product
         product = Product.objects.create(
-            name=data.get('name'),
-            description=data.get('description'),
-            price=data.get('price'),
-            quantity=data.get('quantity'),
-            category=data.get('category'),
+            name=request.data['name'],
+            description=request.data['description'],
+            price=request.data['price'],
+            quantity=request.data['quantity'],
+            category=request.data['category'],
+            farmer=farmer
         )
-        return Response({"success": True, "product_id": product.id}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Product added successfully", "id": product.id}, status=status.HTTP_201_CREATED)
+
+class FarmerProductList(APIView):
+    def get(self, request, farmer_id):
+        try:
+            # Fetch the products for the farmer
+            products = Product.objects.filter(farmer_id=farmer_id)
+            if products.exists():
+                products_data = [{'id': product.id, 'name': product.name, 'description': product.description, 'price': product.price} for product in products]
+                return Response(products_data, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "No products found for this farmer."}, status=status.HTTP_404_NOT_FOUND)
+        except Product.DoesNotExist:
+            return Response({"error": "No products found for this farmer."}, status=status.HTTP_404_NOT_FOUND)
 
 class ProductListView(APIView):
     def get(self, request):
@@ -51,11 +71,14 @@ class LoginView(APIView):
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
-        print(email, password)
         try:
             farmer = Farmer.objects.get(email=email)
             if check_password(password, farmer.password):
-                return Response({"id": farmer.id, "role": "farmer"}, status=status.HTTP_200_OK)
+                return Response({
+                    "id": farmer.id,
+                    "role": "farmer",
+                    "account_status": farmer.account_status  # Add account status here
+                }, status=status.HTTP_200_OK)
         except Farmer.DoesNotExist:
             pass
         try:
@@ -66,6 +89,7 @@ class LoginView(APIView):
             pass
 
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 
 def admin_dashboard(request):
